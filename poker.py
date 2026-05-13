@@ -1,16 +1,16 @@
-import threading
 from itertools import combinations
 from deck import Deck
+from game import Game
 
 
-class PokerGame:
+class PokerGame(Game):
+    @property
+    def name(self):
+        return "POKER"
+
     def __init__(self, send_json, create_msg):
-        self.send_json = send_json
-        self.create_msg = create_msg
-        self.lock = threading.Lock()
 
-        self.players = []  # [(player_id, conn, addr)]
-        self.next_player_id = 1
+        super().__init__(send_json, create_msg)
 
         self.game_state = {
             "deck": None,
@@ -368,7 +368,7 @@ class PokerGame:
                 return
 
             self.game_state["game_started"] = True
-            print("[INFO] Start gry")
+            print("[INFO] Start gry (POKER)")
             self.start_round_locked()
 
     def start_round_locked(self):

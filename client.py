@@ -13,7 +13,6 @@ client.connect(ADDR)
 
 my_player_id = None
 
-
 def create_msg(game, msg_type, player_id=None, data=None, chat=None):
     return {
         "game": game,
@@ -136,6 +135,144 @@ def msg_handle_poker(msg):
     else:
         print("[POKER] Nieznany typ wiadomości:", msg_type)
 
+# ================================
+# ============ MAKAO =============
+# ================================
+
+def msg_handle_makao(msg):
+    global my_player_id
+
+    msg_type = msg.get("type")
+    data = msg.get("data", {})
+    player_id = msg.get("player_id")
+    chat = msg.get("chat")
+
+    # =========== HAND ===========
+    if msg_type == "HAND":
+        my_player_id = player_id
+        cards = data.get("cards", [])
+        print("\n[MAKAO] Twoje startowe karty:", cards)
+    # =========== BLOCK ==========
+    if msg_type == "BLOCK":
+        print(f"Gracz {data['player_id']} został pominięty ze względu na blok. Pozostały czas trwania: {data['duration']}.")
+    # =========== TABLE ==========
+    if msg_type == "TABLE":
+        effect = data.get("effect") or {}
+        effect_name = effect.get("name")
+        print("Aktualny stan stołu: ")
+        for player in data["players"]:
+            print (f"Gracz {player['player_id']} posiada {player['cards_count']} kart oraz jest zablokowany na {player['blocked']} tur.")
+        print(f"W tej turze gracz {data['turn']} zagrał {data['played']}. Wierzchnią kartą na stole jest {data['table']}.")
+        if effect_name == None:
+            print(f"Aktywny efekt: {effect_name}")
+        elif effect_name == "DRAW" or effect_name == "BLOCK":
+            print(f"Aktywny efekt: {effect_name} z siłą {effect.get('severity') or None}")
+        elif effect_name == "DEMAND SUIT":
+            print(f"Aktywny efekt: DEMAND SUIT - {effect.get('suit')}")
+        elif effect_name == "DEMAND FACE":
+            print(f"Aktywny efekt: DEMAND FACE - {effect.get('face')}")
+    # ======== DRAW ERROR ========
+    if msg_type == "DRAW ERROR":
+        print("Wszystkie karty są w grze, dalsze dobieranie kart nie jest możliwe.")
+    # ======== EFFECT DRAW =======
+    if msg_type == "EFFECT DRAW":
+        print("Aby pociągnąć karty wymuszone przez efekt lub poddać się blokowi użyj [END TURN].")
+    # ========== WINNER ==========
+    if msg_type == "WINNER":
+        print(f"Gracz {data['winner']} wygrał grę.")
+    # =========== TURN ===========
+    if msg_type == "TURN":
+
+        if player_id != my_player_id:
+                    return
+
+        played = data.get("played", [])
+        drawn = data.get("drawn", [])
+        effect = data.get("effect") or {}
+        effect_name = effect.get("name")
+        print(f"Twoja ręka: {data['hand']}.")
+        if len(drawn) > 0:
+            print(f"Dobrałeś w tej turze: {drawn}")
+        if (len(played) == 0):
+            print(f"Karta na stole: {data['table']}")
+            if effect_name == None:
+                print(f"Aktywny efekt: {effect_name}")
+            elif effect_name == "DRAW" or effect_name == "BLOCK":
+                print(f"Aktywny efekt: {effect_name} z siłą {effect.get('severity') or None}")
+            elif effect_name == "DEMAND SUIT":
+                print(f"Aktywny efekt: DEMAND SUIT - {effect.get('suit')}")
+            elif effect_name == "DEMAND FACE":
+                print(f"Aktywny efekt: DEMAND FACE - {effect.get('face')}")
+            print(f"Nie zagrałeś żadnych kart.")
+            if (len(data["drawn"]) > 0 or effect_name in ["DRAW", "BLOCK"] or len(played) > 0):
+                action = input(f"Ruch [PLAY [CARD]]/[END TURN]: ").strip().upper().split()
+            else:
+                action = input("Ruch [PLAY [CARD]]/[DRAW]: ").strip().upper().split()
+        else:
+            print(f"Karta na stole: {data['table']}")
+            print(f"Aktywny efekt: {effect.get('name')}")
+            print(f"W tej turze zagrałeś: {played}")            
+            action = input(f"Ruch [PLAY [CARD]]/[END TURN]: ").strip().upper().split()
+
+        if not action:
+            msg = create_msg(
+                game="MAKAO",
+                msg_type="ERROR",
+                player_id=my_player_id
+            )
+            send(msg)
+            return
+        
+        if action[0] == "PLAY":
+            if len(action) < 2:
+                action.append(input(f"Wybierz kartę [CARD]: "))
+            face = action[1][0]
+            suit = action[1][1]
+            face_demand = None
+            suit_demand = None
+            if face == 'J':
+                while (face_demand not in ['5', '6', '7', '8', '9', 'T', 'Q']):
+                    face_demand = input ("Wybierz niespecjalną wartość karty [5/6/7/8/9/T/Q]: ")
+            elif face == 'A':
+                while (suit_demand not in ['C', 'D', 'H', 'S']):
+                    suit_demand = input ("Wybierz kolor [C/D/H/S]: ")
+            msg = create_msg(
+                game="MAKAO",
+                msg_type="PLAY",
+                player_id=my_player_id,
+                data={
+                    "face": face,
+                    "suit": suit,
+                    "face_demand": face_demand,
+                    "suit_demand": suit_demand
+                }
+            )
+        elif action[0] == "DRAW":
+            msg = create_msg(
+                game="MAKAO",
+                msg_type="DRAW",
+                player_id=my_player_id
+            )
+        elif action[0] == "END": #Dla bezpiecześtwa akceptujemy samo END jako END TURN
+            msg = create_msg(
+                game="MAKAO",
+                msg_type="END TURN",
+                player_id=my_player_id
+            )
+        elif action[0] == "END" and action[1] == "TURN":
+            msg = create_msg(
+                game="MAKAO",
+                msg_type="END TURN",
+                player_id=my_player_id
+            )
+        else:
+            msg = create_msg(
+                game="MAKAO",
+                msg_type="ERROR",
+                player_id=my_player_id
+            )
+        send(msg)
+
 def send(msg):
     msg_str = json.dumps(msg)
     message = msg_str.encode(FORMAT)
@@ -160,6 +297,19 @@ def receive():
                 msg_handle_poker(msg)
             elif game == "MAKAO":
                 msg_handle_makao(msg)
+            elif game == "SYSTEM":
+                print(msg)
 
+selected_game = input("Wybierz grę (POKER/MAKAO): ").strip().upper()
+
+join_msg = create_msg(
+    game="SYSTEM",
+    msg_type="JOIN",
+    data={
+        "target_game": selected_game
+    }
+)
+
+send(join_msg)
 
 receive()
