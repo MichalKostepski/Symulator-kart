@@ -3,6 +3,7 @@ import threading
 import json
 
 from poker import PokerGame
+from makao import MakaoGame
 
 HEADER = 64
 PORT = 5050
@@ -47,72 +48,119 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDR)
 
 poker_game = PokerGame(send_json=send_json, create_msg=create_msg)
-
+makao_game = MakaoGame(send_json=send_json, create_msg=create_msg)
 
 def msg_handle_makao(msg):
     print("Odebrano wiadomość MAKAO:", msg)
 
 
 def handle_client(conn, addr):
-    player_id = poker_game.add_player(conn, addr)
-    print(f"New player joined: {addr}")
-    print(f"[INFO] Gracz {player_id} dołączył")
+
+    current_game = None
+    player_id = None
 
     connected = True
+
     while connected:
+
         try:
             header_data = recv_exact(conn, HEADER)
+
             if not header_data:
                 break
 
             msg_length_str = header_data.decode(FORMAT).strip()
+
             if not msg_length_str:
                 continue
 
             msg_length = int(msg_length_str)
 
             msg_data = recv_exact(conn, msg_length)
+
             if not msg_data:
                 break
 
             msg_str = msg_data.decode(FORMAT)
+
             msg = json.loads(msg_str)
 
             game = msg.get("game")
+            msg_type = msg.get("type")
 
-            if game == "POKER":
-                poker_game.handle_message(msg)
-            elif game == "MAKAO":
-                msg_handle_makao(msg)
+            # =========================
+            # JOIN GAME
+            # =========================
+
+            if game == "SYSTEM":
+
+                if msg_type == "JOIN":
+
+                    target = msg["data"]["target_game"]
+
+                    if target in games:
+
+                        current_game = games[target]
+
+                        player_id = current_game.add_player(conn, addr)
+
+                        send_json(conn, create_msg(
+                            game="SYSTEM",
+                            msg_type="JOINED",
+                            player_id=player_id,
+                            data={
+                                "game": target
+                            }
+                        ))
+
+                        print(f"[INFO] Player joined {target}")
+
+                continue
+
+            # =========================
+            # NORMAL GAME MESSAGE
+            # =========================
+
+            if current_game:
+                current_game.handle_message(msg)
 
         except Exception as e:
-            print(f"[DISCONNECT] Błąd klienta {player_id}: {e}")
+            print(f"[DISCONNECT] {addr}: {e}")
             connected = False
 
-    poker_game.remove_player(player_id)
-    try:
-        conn.close()
-    except:
-        pass
-    print(f"[INFO] Gracz {player_id} rozłączony")
+    # =========================
+    # DISCONNECT
+    # =========================
+
+    if current_game and player_id:
+        current_game.remove_player(player_id)
+
+    conn.close()
 
 
 def server_commands():
+
     while True:
+
         cmd = input().strip().lower()
 
-        if cmd == "start":
-            poker_game.start_game()
-        elif cmd == "players":
-            poker_game.print_players()
-        elif cmd == "state":
-            poker_game.print_state()
+        if cmd == "start poker":
+            games["POKER"].start_game()
+
+        elif cmd == "start makao":
+            games["MAKAO"].start_game()
+
+        elif cmd == "players poker":
+            print(games["POKER"].players)
+
+        elif cmd == "players makao":
+            print(games["MAKAO"].players)
 
 
 def start():
     server.listen()
     print(f"Server listening on {SERVER}:{PORT}")
-    print("Wpisz 'start', aby rozpocząć grę, gdy gracze już dołączą.")
+    print("Wpisz 'start poker' lub 'start makao', aby rozpocząć grę, gdy gracze już dołączą.")
 
     command_thread = threading.Thread(target=server_commands, daemon=True)
     command_thread.start()
@@ -122,5 +170,9 @@ def start():
         thread = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
         thread.start()
 
+games = {
+    "POKER": PokerGame(send_json, create_msg),
+    "MAKAO": MakaoGame(send_json, create_msg)
+}
 
 start()

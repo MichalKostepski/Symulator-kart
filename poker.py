@@ -1,20 +1,22 @@
-import threading
 from itertools import combinations
 from deck import Deck
+from game import Game
 
 
-class PokerGame:
+class PokerGame(Game):
+    @property
+    def name(self):
+        return "POKER"
+
     def __init__(self, send_json, create_msg):
-        self.send_json = send_json
-        self.create_msg = create_msg
-        self.lock = threading.Lock()
 
-        self.players = []  # [(player_id, conn, addr)]
-        self.next_player_id = 1
+        super().__init__(send_json, create_msg)
+        self.STARTING_CHIPS = 500
 
         self.game_state = {
             "deck": None,
             "hands": {},
+            "chips": {},
             "community_cards": [],
             "pot": 0,
             "current_bet": 0,
@@ -37,6 +39,7 @@ class PokerGame:
             player_id = self.next_player_id
             self.next_player_id += 1
             self.players.append((player_id, conn, addr))
+            self.game_state["chips"][player_id] = self.STARTING_CHIPS
             return player_id
 
     def remove_player(self, player_id):
@@ -54,6 +57,7 @@ class PokerGame:
             self.players = [p for p in self.players if p[0] != player_id]
 
             self.game_state["hands"].pop(player_id, None)
+            self.game_state["chips"].pop(player_id, None)
             self.game_state["round_bets"].pop(player_id, None)
             self.game_state["folded_players"].discard(player_id)
             self.game_state["players_acted"].discard(player_id)
@@ -192,7 +196,8 @@ class PokerGame:
                 "pot": self.game_state["pot"],
                 "current_bet": self.game_state["current_bet"],
                 "community_cards": [str(card) for card in self.game_state["community_cards"]],
-                "folded_players": list(self.game_state["folded_players"])
+                "folded_players": list(self.game_state["folded_players"]),
+                "chips": self.game_state["chips"]
             }
         )
         self.broadcast(msg)
@@ -368,7 +373,7 @@ class PokerGame:
                 return
 
             self.game_state["game_started"] = True
-            print("[INFO] Start gry")
+            print("[INFO] Start gry (POKER)")
             self.start_round_locked()
 
     def start_round_locked(self):
@@ -413,13 +418,15 @@ class PokerGame:
             self.send_to_player(conn, msg)
 
         blind_player_id, _, _ = self.players[blind_index]
-        blind_amount = self.game_state["blind_amount"]
+        available_chips = self.game_state["chips"][blind_player_id]
+        actual_blind = min(self.game_state["blind_amount"], available_chips)
 
-        self.game_state["round_bets"][blind_player_id] = blind_amount
-        self.game_state["pot"] = blind_amount
-        self.game_state["current_bet"] = blind_amount
+        self.game_state["chips"][blind_player_id] -= actual_blind
+        self.game_state["round_bets"][blind_player_id] = actual_blind
+        self.game_state["pot"] = actual_blind
+        self.game_state["current_bet"] = actual_blind
 
-        print(f"[BLIND] Gracz {blind_player_id} wpłaca blind: {blind_amount}")
+        print(f"[BLIND] Gracz {blind_player_id} wpłaca blind: {actual_blind}")
 
         self.game_state["current_turn"] = self.get_next_active_turn(blind_index)
 
@@ -427,6 +434,8 @@ class PokerGame:
         self.send_turn_to_current_player()
 
     def award_pot_to_winner_locked(self, winner_id, reason="WIN"):
+        self.game_state["chips"][winner_id] += self.game_state["pot"]
+
         msg = self.create_msg(
             game="POKER",
             msg_type="WINNER",
@@ -439,10 +448,22 @@ class PokerGame:
             }
         )
         self.broadcast(msg)
+
         print(f"[WINNER] Gracz {winner_id} wygrywa pulę {self.game_state['pot']} ({reason})")
 
+        current_blind_idx = self.game_state["blind_player"]
+        next_blind_candidate_id = self.players[(current_blind_idx + 1) % len(self.players)][0]
+
+        self.handle_bancruptcies()
+
         if len(self.players) >= 2:
-            self.game_state["blind_player"] = (self.game_state["blind_player"] + 1) % len(self.players)
+            new_idx = 0
+            for i, p in enumerate(self.players):
+                if p[0] == next_blind_candidate_id:
+                    new_idx = i
+                    break
+            
+            self.game_state["blind_player"] = new_idx
             self.start_round_locked()
         else:
             self.game_state["game_started"] = False
@@ -475,6 +496,7 @@ class PokerGame:
 
         if len(winners) == 1:
             winner = winners[0]
+            self.game_state["chips"][winner["player_id"]] += self.game_state["pot"]
             msg = self.create_msg(
                 game="POKER",
                 msg_type="WINNER",
@@ -494,6 +516,10 @@ class PokerGame:
 
         else:
             winner_ids = [w["player_id"] for w in winners]
+            split_pot = self.game_state["pot"] // len(winners)
+            for wid in winner_ids:
+                self.game_state["chips"][wid] += split_pot
+
             msg = self.create_msg(
                 game="POKER",
                 msg_type="WINNER",
@@ -510,8 +536,19 @@ class PokerGame:
             print(f"[WINNER] Remis między graczami: {winner_ids}")
             print(f"[WINNER] Najlepszy układ: {winners[0]['hand_name']}")
 
+        current_blind_idx = self.game_state["blind_player"]
+        next_blind_candidate_id = self.players[(current_blind_idx + 1) % len(self.players)][0]
+
+        self.handle_bancruptcies()
+
         if len(self.players) >= 2:
-            self.game_state["blind_player"] = (self.game_state["blind_player"] + 1) % len(self.players)
+            new_idx = 0
+            for i, p in enumerate(self.players):
+                if p[0] == next_blind_candidate_id:
+                    new_idx = i
+                    break
+            
+            self.game_state["blind_player"] = new_idx
             self.start_round_locked()
         else:
             self.game_state["game_started"] = False
@@ -561,6 +598,27 @@ class PokerGame:
             player_id = msg.get("player_id")
             data = msg.get("data", {})
 
+            #==================
+            # CHAT
+            #==================
+
+            if msg_type == "CHAT":
+                chat_text = msg.get("chat")
+                broadcast_msg = self.create_msg (
+                    game=msg.get("game"),
+                    msg_type="CHAT",
+                    player_id=player_id,
+                    data=data,
+                    chat=chat_text
+                    )
+                self.broadcast(broadcast_msg)
+                return
+
+
+            #===============
+            # GAME
+            #===============
+
             if msg_type != "MOVE":
                 return
 
@@ -594,8 +652,12 @@ class PokerGame:
                 if amount_to_call < 0:
                     amount_to_call = 0
 
-                self.game_state["round_bets"][player_id] = self.game_state["round_bets"].get(player_id, 0) + amount_to_call
-                self.game_state["pot"] += amount_to_call
+                available_chips = self.game_state["chips"][player_id]
+                actual_call = min(amount_to_call, available_chips)
+
+                self.game_state["chips"][player_id] -= actual_call
+                self.game_state["round_bets"][player_id] = self.game_state["round_bets"].get(player_id, 0) + actual_call
+                self.game_state["pot"] += actual_call
                 self.game_state["players_acted"].add(player_id)
 
                 print(f"[CALL] Gracz {player_id} dopłaca: {amount_to_call}")
@@ -621,13 +683,23 @@ class PokerGame:
 
                 if new_bet <= self.game_state["current_bet"]:
                     print("[ERROR] Raise musi być większy niż current_bet")
+                    self.send_turn_to_current_player()
                     return
 
                 amount_to_add = new_bet - self.game_state["round_bets"].get(player_id, 0)
-                if amount_to_add < 0:
-                    print("[ERROR] Nieprawidłowy raise")
+                available_chips = self.game_state["chips"][player_id]
+                
+                if amount_to_add > available_chips:
+                    print(f"[ERROR] Gracz {player_id} nie ma tylu żetonów na raise!")
+                    self.send_turn_to_current_player()
                     return
 
+                if amount_to_add < 0:
+                    print("[ERROR] Nieprawidłowy raise")
+                    self.send_turn_to_current_player()
+                    return
+
+                self.game_state["chips"][player_id] -= amount_to_add
                 self.game_state["round_bets"][player_id] = new_bet
                 self.game_state["current_bet"] = new_bet
                 self.game_state["pot"] += amount_to_add
@@ -659,3 +731,19 @@ class PokerGame:
             next_turn = self.get_next_active_turn(self.game_state["current_turn"])
             self.game_state["current_turn"] = next_turn
             self.send_turn_to_current_player()
+
+    def handle_bancruptcies(self):
+        bankrupts = [pid for pid, chips in self.game_state["chips"].items() if chips <= 0]
+        for pid in bankrupts:
+            print(f"[DEFEAT] Gracz {pid} stracił wszystkie żetony.")
+            for p_id, conn, _ in list(self.players):
+                if p_id == pid:
+                    msg = self.create_msg("POKER", "DEFEAT", player_id=pid)
+                    try:
+                        self.send_to_player(conn, msg)
+                    except:
+                        pass
+                    self.remove_player(pid)
+
+                if pid in self.game_state["chips"]:
+                    del self.game_state["chips"][pid]
