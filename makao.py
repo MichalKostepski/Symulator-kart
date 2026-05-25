@@ -2,6 +2,7 @@ from game import Game
 from deck_simple import DeckSimple
 from card_simple import CardSimple
 
+
 class MakaoGame(Game):
 
     @property

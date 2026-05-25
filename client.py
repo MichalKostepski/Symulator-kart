@@ -6,6 +6,7 @@ import threading
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import colorchooser
+from stats_manager import StatsManager
 
 HEADER = 64
 PORT = 5050
@@ -135,6 +136,10 @@ class CardGameClientApp:
         self.face_demand_var = tk.StringVar(value="5")
         self.suit_demand_var = tk.StringVar(value="C")
 
+        self.stats = StatsManager()
+        self.menu_stats_var = tk.StringVar(value=self.stats.format_stats())
+
+        self.refresh_menu_stats()
         self.show_menu()
         self.connect_to_server(show_errors=False)
 
@@ -195,6 +200,9 @@ class CardGameClientApp:
             justify="left",
             wraplength=230,
         )
+
+    def refresh_menu_stats(self):
+        self.menu_stats_var.set(self.stats.format_stats())
 
     def normalize_card_code_for_image(self, card):
         """
@@ -652,9 +660,44 @@ class CardGameClientApp:
             )
         messagebox.showinfo("Zasady: Makao", rules)
 
+    def show_history_window(self):
+        history_window = tk.Toplevel(self.root)
+        history_window.title("Historia rozegranych gier")
+        history_window.geometry("700x500")
+        history_window.configure(bg="#123F32")
+
+        tk.Label(
+            history_window,
+            text="HISTORIA GIER",
+            font=("Arial", 18, "bold"),
+            fg="#F8F7F2",
+            bg="#123F32"
+        ).pack(pady=12)
+
+        text_widget = tk.Text(
+            history_window,
+            bg="#09251D",
+            fg="#F8F7F2",
+            font=("Consolas", 11),
+            wrap="word"
+        )
+
+        text_widget.pack(fill="both", expand=True, padx=15, pady=15)
+
+        history_lines = self.stats.load_history()
+
+        if not history_lines:
+            text_widget.insert("end", "Brak zapisanych gier.")
+        else:
+            for line in reversed(history_lines):
+                text_widget.insert("end", line)
+
+        text_widget.configure(state="disabled")
 
 
     def show_menu(self):
+        self.refresh_menu_stats()
+        
         self.active_game = None
         self.clear_window()
         self.root.configure(bg=self.bg_color)
@@ -671,6 +714,7 @@ class CardGameClientApp:
         self.make_button(rules_frame, "ZASADY MAKAO", self.show_rules_makao, bg="#3D5A80", fg="white", width=20).grid(row=0, column=1, padx=10)
 
         self.make_button(outer, "Zmień kolor tła", self.change_color, bg="#F8F7F2", width=20).pack(pady=10)
+        self.make_button(outer, "HISTORIA GIER", self.show_history_window, bg="#F4A261", width=20).pack(pady=10)
 
         tk.Label(
             outer,
@@ -702,6 +746,27 @@ class CardGameClientApp:
 
         reconnect_btn = self.make_button(card, "POŁĄCZ PONOWNIE", lambda: self.connect_to_server(show_errors=True), bg="#F8F7F2", width=20)
         reconnect_btn.grid(row=2, column=0, columnspan=2, pady=(18, 0))
+
+        stats_panel = self.make_panel(outer, bg="#123F32", padx=22, pady=18)
+        stats_panel.pack(pady=18)
+
+        tk.Label(
+            stats_panel,
+            text="STATYSTYKI",
+            font=("Arial", 15, "bold"),
+            fg="#F8F7F2",
+            bg="#123F32",
+        ).pack(anchor="w")
+
+        tk.Label(
+            stats_panel,
+            textvariable=self.menu_stats_var,
+            font=("Consolas", 12),
+            fg="#F8F7F2",
+            bg="#123F32",
+            justify="left",
+            anchor="w",
+        ).pack(anchor="w", pady=(8, 0))
 
         tk.Label(
             outer,
@@ -970,11 +1035,11 @@ class CardGameClientApp:
         suit_menu.pack(fill="x", pady=(2, 14))
 
         self.makao_play_button = self.make_button(action_panel, "ZAGRAJ KARTĘ", self.send_makao_play, bg="#A7C957", width=14)
-        self.makao_play_button.pack(fill="x", pady=6)
+        self.makao_play_button.pack(fill="x", pady=0)
         self.makao_draw_button = self.make_button(action_panel, "DOBIERZ", self.send_makao_draw, bg="#E9C46A", width=14)
-        self.makao_draw_button.pack(fill="x", pady=6)
+        self.makao_draw_button.pack(fill="x", pady=0)
         self.makao_end_button = self.make_button(action_panel, "KONIEC TURY", self.send_makao_end_turn, bg="#E76F51", fg="#FFFFFF", width=14)
-        self.makao_end_button.pack(fill="x", pady=6)
+        self.makao_end_button.pack(fill="x", pady=0)
         self.set_makao_action_buttons(False)
 
         log_panel = self.make_log_panel(middle)
@@ -1203,6 +1268,15 @@ class CardGameClientApp:
         elif msg_type == "WINNER":
             winner = data.get("winner")
             pot = data.get("pot", self.poker_pot)
+
+            if isinstance(winner, list):
+                if self.my_player_id in winner:
+                    split_pot = pot // len(winner)
+                    self.stats.update_after_game("poker", split_pot, True)
+            else:
+                if winner == self.my_player_id:
+                    self.stats.update_after_game("poker", pot, True)
+
             reason = data.get("reason")
             hand_name = data.get("hand_name")
             best_combo = data.get("best_combo")
@@ -1222,6 +1296,7 @@ class CardGameClientApp:
             messagebox.showinfo("Koniec rozdania", details)
 
         elif msg_type == "DEFEAT":
+            self.stats.update_after_game("poker", 0, False)
             self.log("[PORAŻKA] Straciłeś wszystkie żetony!")
             messagebox.showinfo("Porażka", "Straciłeś wszystkie żetony. Odpadasz z gry.")
             self.show_menu()
@@ -1287,6 +1362,11 @@ class CardGameClientApp:
 
         elif msg_type == "WINNER":
             winner = data.get("winner")
+            if winner == self.my_player_id:
+                self.stats.update_after_game("makao", 0, True)
+            else:
+                self.stats.update_after_game("makao", 0, False)
+                
             self.set_makao_action_buttons(False)
             self.status_var.set(f"Wygrał gracz {winner}")
             self.log(f"[KONIEC/MAKAO] Wygrał gracz {winner}")
