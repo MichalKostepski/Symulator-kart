@@ -23,6 +23,8 @@ def recv_exact(conn, length):
 
 
 def send_json(conn, msg):
+    if conn == None:
+        return
     msg_str = json.dumps(msg)
     message = msg_str.encode(FORMAT)
 
@@ -156,11 +158,15 @@ def server_commands():
         elif cmd == "players makao":
             print(games["MAKAO"].players)
 
+        elif cmd == "add makao bot":
+            games["MAKAO"].add_bot()
+
 
 def start():
     server.listen()
     print(f"Server listening on {SERVER}:{PORT}")
     print("Wpisz 'start poker' lub 'start makao', aby rozpocząć grę, gdy gracze już dołączą.")
+    print("Wpisz 'add makao bot', aby dodać bota do Makao")
 
     command_thread = threading.Thread(target=server_commands, daemon=True)
     command_thread.start()

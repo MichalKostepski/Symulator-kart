@@ -126,6 +126,9 @@ class CardGameClientApp:
         self.makao_selected_card_var = tk.StringVar(value="Wybrana karta: -")
         self.makao_drawn_var = tk.StringVar(value="Dobrane w tej turze: -")
         self.makao_played_var = tk.StringVar(value="Zagrane w tej turze: -")
+        self.makao_report_var = tk.StringVar(value="")
+        self.makao_report_target = tk.StringVar(value="")
+
 
         self.makao_hand_frame = None
         self.makao_table_card_frame = None
@@ -509,6 +512,7 @@ class CardGameClientApp:
 
         self.log_text = tk.Text(
             log_panel,
+            width=32,
             height=12,
             bg="#09251D",
             fg="#F8F7F2",
@@ -854,7 +858,9 @@ class CardGameClientApp:
 
 
         action_panel = self.make_panel(bottom, bg="#123F32")
-        action_panel.grid(row=0, column=1, sticky="nsew", padx=8)
+        action_panel.grid(row=0, column=1, sticky="ns", padx=8)
+        action_panel.configure(width=360)
+        action_panel.grid_propagate(False)
         tk.Label(action_panel, text="RUCH", font=("Arial", 15, "bold"), fg="#F8F7F2", bg="#123F32").pack(anchor="w", pady=(0, 14))
 
         self.poker_call_button = self.make_button(action_panel, "CALL", self.send_poker_call, bg="#A7C957", width=12)
@@ -1003,16 +1009,45 @@ class CardGameClientApp:
         tk.Label(players_panel, text="GRACZE", font=("Arial", 15, "bold"), fg="#F8F7F2", bg="#123F32").pack(anchor="w")
         self.makao_players_frame = tk.Frame(players_panel, bg="#123F32")
         self.makao_players_frame.pack(fill="both", expand=True, pady=(8, 0))
+        tk.Label(
+            players_panel,
+            text="Zgłoś brak MAKAO:",
+            fg="#F8F7F2",
+            bg="#123F32",
+            font=("Arial", 11, "bold")
+        ).pack(anchor="w", pady=(10, 2))
+
+        report_frame = tk.Frame(players_panel, bg="#123F32")
+        report_frame.pack(fill="x", pady=6)
+
+        self.makao_report_menu = tk.OptionMenu(
+            report_frame,
+            self.makao_report_target,
+            ""
+        )
+        self.makao_report_menu.configure(font=("Arial", 10))
+        self.makao_report_menu.pack(side="left", fill="x", expand=True)
+
+        self.make_button(
+            report_frame,
+            "ZGŁOŚ",
+            self.send_makao_report,
+            bg="#E76F51",
+            width=10
+        ).pack(side="left", padx=(6, 0))
 
         middle = tk.Frame(main, bg=self.bg_color)
         middle.pack(fill="both", expand=True)
-        middle.columnconfigure(0, weight=3)
-        middle.columnconfigure(1, weight=1)
+        main.pack_propagate(False)
+        middle.pack_propagate(False)
+        middle.columnconfigure(0, weight=5)
+        middle.columnconfigure(1, weight=3)
         middle.columnconfigure(2, weight=2)
         middle.rowconfigure(0, weight=1)
 
         hand_panel = self.make_panel(middle, bg="#123F32")
         hand_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        hand_panel.grid_propagate(False)
         tk.Label(hand_panel, text="TWOJE KARTY — kliknij kartę, żeby ją wybrać", font=("Arial", 15, "bold"), fg="#F8F7F2", bg="#123F32").pack(anchor="w")
         self.makao_hand_frame = tk.Frame(hand_panel, bg="#123F32")
         self.makao_hand_frame.pack(fill="both", expand=True, pady=(10, 0))
@@ -1020,26 +1055,45 @@ class CardGameClientApp:
 
         action_panel = self.make_panel(middle, bg="#123F32")
         action_panel.grid(row=0, column=1, sticky="nsew", padx=8)
-        tk.Label(action_panel, text="RUCH", font=("Arial", 15, "bold"), fg="#F8F7F2", bg="#123F32").pack(anchor="w", pady=(0, 12))
+        action_panel.columnconfigure(0, weight=1)
+        action_panel.columnconfigure(1, weight=1)
 
-        self.make_small_label(action_panel, textvariable=self.makao_selected_card_var, bg="#123F32", size=12, bold=True).pack(anchor="w", pady=(0, 10))
+        tk.Label(action_panel,text="RUCH",font=("Arial", 15, "bold"),fg="#F8F7F2",bg="#123F32").grid(row=0, column=0, sticky="w", pady=(0, 12))
 
-        tk.Label(action_panel, text="Gdy grasz J, żądasz wartości:", font=("Arial", 10), fg="#DDE7DD", bg="#123F32").pack(anchor="w")
-        face_menu = tk.OptionMenu(action_panel, self.face_demand_var, "5", "6", "7", "8", "9", "T", "Q")
-        face_menu.configure(font=("Arial", 11), bg="#F8F7F2", relief="flat")
-        face_menu.pack(fill="x", pady=(2, 8))
+        self.make_small_label(action_panel,textvariable=self.makao_selected_card_var,bg="#123F32",size=12,bold=True).grid(row=1, column=0, sticky="w", pady=(0, 10))
 
-        tk.Label(action_panel, text="Gdy grasz A, żądasz koloru:", font=("Arial", 10), fg="#DDE7DD", bg="#123F32").pack(anchor="w")
-        suit_menu = tk.OptionMenu(action_panel, self.suit_demand_var, "C", "D", "H", "S")
-        suit_menu.configure(font=("Arial", 11), bg="#F8F7F2", relief="flat")
-        suit_menu.pack(fill="x", pady=(2, 14))
+        tk.Label(action_panel,text="J → wartość",font=("Arial", 10),fg="#DDE7DD",bg="#123F32").grid(row=2, column=0, sticky="w", padx=4)
 
-        self.makao_play_button = self.make_button(action_panel, "ZAGRAJ KARTĘ", self.send_makao_play, bg="#A7C957", width=14)
-        self.makao_play_button.pack(fill="x", pady=0)
-        self.makao_draw_button = self.make_button(action_panel, "DOBIERZ", self.send_makao_draw, bg="#E9C46A", width=14)
-        self.makao_draw_button.pack(fill="x", pady=0)
-        self.makao_end_button = self.make_button(action_panel, "KONIEC TURY", self.send_makao_end_turn, bg="#E76F51", fg="#FFFFFF", width=14)
-        self.makao_end_button.pack(fill="x", pady=0)
+        tk.Label(action_panel,text="A → kolor",font=("Arial", 10),fg="#DDE7DD",bg="#123F32").grid(row=2, column=1, sticky="w", padx=4)
+
+        face_menu = tk.OptionMenu(action_panel,self.face_demand_var,"5", "6", "7", "8", "9", "T", "Q")
+
+        face_menu.configure(font=("Arial", 11),bg="#F8F7F2",relief="flat")
+
+        face_menu.grid(row=3,column=0,sticky="ew",padx=4,pady=(2, 14))
+
+        suit_menu = tk.OptionMenu(action_panel,self.suit_demand_var,"C", "D", "H", "S")
+
+        suit_menu.configure(font=("Arial", 11),bg="#F8F7F2",relief="flat")
+
+        suit_menu.grid(row=3,column=1,sticky="ew",padx=4,pady=(2, 14))
+
+        self.makao_play_button = self.make_button(action_panel,"ZAGRAJ KARTĘ",self.send_makao_play,bg="#A7C957",width=14)
+
+        self.makao_play_button.grid(row=6,column=0,sticky="ew",padx=4,pady=4)
+
+        self.makao_draw_button = self.make_button(action_panel,"DOBIERZ",self.send_makao_draw,bg="#E9C46A",width=14)
+
+        self.makao_draw_button.grid(row=6,column=1,sticky="ew",padx=4,pady=4)
+
+        self.makao_end_button = self.make_button(action_panel,"KONIEC TURY",self.send_makao_end_turn,bg="#E76F51",fg="#FFFFFF",width=14)
+
+        self.makao_end_button.grid(row=7,column=0,sticky="ew",padx=4, pady=4)
+
+        self.makao_makao_button = self.make_button(action_panel,"MAKAO",self.send_makao_makao,bg="#49B543",width=14)
+
+        self.makao_makao_button.grid(row=7,column=1,sticky="ew",padx=4,pady=4)
+
         self.set_makao_action_buttons(False)
 
         log_panel = self.make_log_panel(middle)
@@ -1094,7 +1148,7 @@ class CardGameClientApp:
         for index, card in enumerate(self.makao_hand_cards):
             if index % 8 == 0:
                 row = tk.Frame(self.makao_hand_frame, bg="#123F32")
-                row.pack(anchor="w")
+                row.pack(fill="x", anchor="w")
             selected = str(card) == str(self.selected_makao_card)
             self.make_card_label(row, card, command=lambda c=card: self.select_makao_card(c), selected=selected, width=4, height=2)
 
@@ -1117,9 +1171,27 @@ class CardGameClientApp:
             player_id = player.get("player_id")
             cards_count = player.get("cards_count")
             blocked = player.get("blocked")
+            said_makao = player.get("makao", False)
             prefix = "➜ " if player_id == self.makao_turn_player else "   "
             text = f"{prefix}Gracz {player_id}: kart {cards_count}, blok {blocked}"
+            if said_makao:
+                text+=", MAKAO"
             tk.Label(self.makao_players_frame, text=text, fg="#F8F7F2", bg="#123F32", font=("Arial", 11), anchor="w").pack(anchor="w", pady=2)
+
+        menu = self.makao_report_menu["menu"]
+        menu.delete(0, "end")
+
+        for player in self.makao_players:
+            pid = player["player_id"]
+
+            menu.add_command(
+                label=f"Gracz {pid}",
+                command=lambda p=pid: self.makao_report_target.set(p)
+            )
+
+        # ustaw domyślną wartość
+        if self.makao_players and not self.makao_report_target.get():
+            self.makao_report_target.set(self.makao_players[0]["player_id"])
 
     def set_makao_action_buttons(self, enabled):
         state = "normal" if enabled else "disabled"
@@ -1201,6 +1273,37 @@ class CardGameClientApp:
             self.refresh_makao_labels()
             self.log("[TY/MAKAO] END TURN")
             self.status_var.set("Koniec tury wysłany. Czekasz na pozostałych...")
+
+    def send_makao_makao(self):
+        if self.my_player_id is None:
+            messagebox.showwarning("Brak ID gracza", "Serwer nie wysłał jeszcze Twojego numeru gracza.")
+            return
+        
+        msg = create_msg("MAKAO", "MAKAO", player_id=self.my_player_id)
+        if self.send(msg):
+            self.refresh_makao_labels()
+            self.refresh_makao_players()
+
+    def send_makao_report(self):
+        target = self.makao_report_target.get()
+
+        if not target:
+            messagebox.showwarning("Makao", "Wybierz gracza do zgłoszenia.")
+            return
+
+        msg = create_msg(
+            game="MAKAO",
+            msg_type="REPORT_MAKAO",
+            player_id=self.my_player_id,
+            data={
+                "target": target
+            }
+        )
+
+        if(self.send(msg)):
+            self.log(f"[TY] Zgłoszono brak MAKAO: gracz {target}")
+            self.refresh_makao_hand()
+            self.refresh_makao_players()
 
     # =====================
     # OBSŁUGA WIADOMOŚCI
@@ -1335,8 +1438,14 @@ class CardGameClientApp:
             self.refresh_makao_hand()
             self.log(f"[MAKAO] Twoje karty: {self.makao_hand_cards}")
 
+        elif msg_type == "MAKAO":
+            self.log(f"[MAKAO] Gracz {player_id} powiedział Makao.")
+
+        elif msg_type == "REPORT":
+            self.log(f"[MAKAO] Gracz {player_id} został ukarany za brak Makao i dobrał 5 kart.")
+
         elif msg_type == "BLOCK":
-            self.log(f"[MAKAO] Gracz {data.get('player_id')} został pominięty przez blok. Czas: {data.get('duration')}")
+            self.log(f"[MAKAO] Gracz {player_id} został pominięty przez blok. Czas: {data.get('duration')}")
 
         elif msg_type == "TABLE":
             self.makao_players = data.get("players", self.makao_players)

@@ -1,6 +1,7 @@
 from game import Game
 from deck_simple import DeckSimple
 from card_simple import CardSimple
+from makao_bot import MakaoBot
 
 
 class MakaoGame(Game):
@@ -27,7 +28,9 @@ class MakaoGame(Game):
             "next_turn": None, #player_id
             "played": None,
             "effect": None, #{"name", "severity", "face", "suit"}
-            "drawn": None
+            "drawn": None,
+            "makao_called": None,
+            "winners": None,
         }
 
     # ======================
@@ -37,7 +40,7 @@ class MakaoGame(Game):
     def print_players(self):
         with self.lock:
             print("=== PLAYERS ===")
-            for pid, _, addr in self.players:
+            for pid, _, addr, _, _ in self.players:
                 print(f"Gracz {pid} | {addr}")
 
     def print_state(self):
@@ -45,6 +48,144 @@ class MakaoGame(Game):
             print("=== GAME STATE ===")
             for key, value in self.game_state.items():
                 print(f"{key}: {value}")
+
+    # =====================
+    # BOT
+    # =====================
+
+    def add_bot(self):
+        with self.lock:
+            player_id = self.next_player_id
+            self.next_player_id += 1
+
+            bot = MakaoBot(self, player_id)
+
+            self.players.append((player_id, None, None, True, bot))
+
+            print(f"[MAKAO] Bot {player_id} dołączył")
+
+            return player_id
+        
+    def run_bot(self, player_id):
+        bot = None
+
+        for pid, conn, addr, is_bot, b in self.players:
+            if pid == player_id and is_bot:
+                bot = b
+                break
+
+        if not bot:
+            return
+        
+        hand = self.game_state["hands"][player_id]
+
+        print(self.game_state["table"][-1])
+        weights = []
+        for i in range(len(hand)):
+            if self.check_card_eligibility(hand[i]):
+                weights.append(20) #Karta możliwa do zagrania
+            else:
+                weights.append(0)
+        print(hand)
+        print(weights)
+        if max(weights) == 0:
+            if len(self.game_state["played"]) == 0 and len(self.game_state["drawn"]) == 0 and not self.game_state["effect"].get("name") in ["DRAW", "BLOCK"]:
+                msg = self.create_msg(
+                    game="MAKAO",
+                    msg_type="DRAW",
+                    player_id = player_id
+                )
+            else:
+                msg = self.create_msg(
+                    game="MAKAO",
+                    msg_type="END TURN",
+                    player_id = player_id
+                )
+            print(msg)
+            self.handle_message(msg)
+            return
+        
+        suits = {}
+        suits["C"] = 0
+        suits["D"] = 0
+        suits["H"] = 0
+        suits["S"] = 0
+
+        faces = {}
+        for i in ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A']:
+            faces[i] = 0
+
+        for i in range(len(hand)):
+            card = hand[i]
+            suits[card.suit] += 1
+            faces[card.face] += 1
+
+        next_turn = self.game_state["next_turn"]
+        if next_turn == None:
+            next_turn_cards_number = 0
+        else:
+            next_turn_cards_number = len(self.game_state["hands"][next_turn])
+
+        for i in range(len(hand)):
+            card = hand[i]
+            if weights[i] == 0:
+                continue
+            if len(hand) == 1:
+                weights[i] += 1000
+            if card.face in ["2", "3", "4", "J", "Q", "K", "A"]:
+                weights[i] -= 10 #Unikać kart specjalnych
+            weights[i] += suits[card.suit] #Lepszy kolor w którym mamy więcej kart
+            weights[i] += 3 * faces[card.face]  #Zagrywanie wielu kart na raz
+            if (next_turn_cards_number <= 2):
+                if card.face in ["2", "3", "4"]:
+                    weights[i] += 30
+                elif card.face == "K" and card.suit == "H":
+                    weights[i] += 30
+                elif card.face == "J":
+                    weights[i] += 25
+                elif card.face == "A":
+                    weights[i] += 15
+                elif card.face == "Q":
+                    weights[i] -= 100
+
+        best_weight = max(weights)
+
+        if best_weight < 0: #The only play is Q and next player has 2 or less cards
+            msg = self.create_msg(
+                    game="MAKAO",
+                    msg_type="DRAW",
+                    player_id = player_id
+                )
+            self.handle_message(msg)
+
+        best_play_index = weights.index(best_weight)
+        best_play = hand[best_play_index]
+
+        face = None
+        suit = None
+            
+        if best_play.face == "J":
+            face = max(faces, key=faces.get)
+        
+        if best_play.face == "A":
+            suit = max(suits, key=suits.get)
+
+        msg = self.create_msg(
+            game = "MAKAO",
+            msg_type = "PLAY",
+            player_id = player_id,
+            data ={
+                "face": best_play.face,
+                "suit": best_play.suit,
+                "face_demand": face,
+                "suit_demand": suit,
+            }
+        )
+        print(weights)
+        print(msg)
+        print("")
+        self.handle_message(msg)
+        
 
     # ======================
     # HELPERS
@@ -99,13 +240,13 @@ class MakaoGame(Game):
         return self.players[start_index][0]
     
     def get_player_conn(self, player_id):
-        for pid, conn, _ in self.players:
+        for pid, conn, _, _, _ in self.players:
             if pid == player_id:
                 return conn
         return None
     
     def get_player_index(self, player_id):
-        for i, (pid, _, _) in enumerate(self.players):
+        for i, (pid, _, _, _, _) in enumerate(self.players):
             if pid == player_id:
                 return i
         return None
@@ -115,6 +256,11 @@ class MakaoGame(Game):
         turn_player_id = self.game_state["current_turn"]
 
         if turn_player_id is None:
+            return
+        
+        index = self.get_player_index(turn_player_id)
+        if self.players[index][3] == True:
+            self.run_bot(turn_player_id)
             return
         
         turn_player_id = self.game_state["current_turn"]
@@ -145,9 +291,10 @@ class MakaoGame(Game):
                 {
                     "player_id": pid,
                     "cards_count": len(self.game_state["hands"].get(pid, [])),
-                    "blocked": self.game_state["blocked"].get(pid, 0)
+                    "blocked": self.game_state["blocked"].get(pid, 0),
+                    "makao": self.game_state["makao_called"].get(pid, False)
                 }
-                for pid, _, _ in self.players
+                for pid, _, _, _, _ in self.players
                 ],
                 "turn": self.game_state["current_turn"],
                 "played": [str(card) for card in self.game_state["played"]],
@@ -214,6 +361,10 @@ class MakaoGame(Game):
 
     def check_card_eligibility(self, card):
         top_card = self.game_state["table"][-1]
+        if len(self.game_state["played"]) > 0:
+            if card.face == self.game_state["played"][0].face:
+                return True
+            return False
         if top_card.face == 'Q':
             return True
         if self.game_state["effect"].get("name") == "DRAW":
@@ -239,10 +390,6 @@ class MakaoGame(Game):
             return False
         if len(self.game_state["drawn"]) > 0:
             if card in self.game_state["drawn"] and (card.face == top_card.face or card.suit == top_card.suit or card.face == 'Q'):
-                return True
-            return False
-        if len(self.game_state["played"]) > 0:
-            if card.face == self.game_state["played"][0].face:
                 return True
             return False
         if self.game_state["effect"].get("name") == None:
@@ -274,7 +421,7 @@ class MakaoGame(Game):
             self.game_state["effect"]["name"] = "DEMAND FACE"
             self.game_state["effect"]["face"] = face
         elif card.face == 'K' and card.suit in ['H', 'S']:
-            if self.game_state["effect"]["name"] == "DRAW":
+            if self.game_state["effect"].get("name") == "DRAW":
                 self.game_state["effect"]["severity"] += 5
             else:
                 self.game_state["effect"]["name"] = "DRAW"
@@ -340,14 +487,17 @@ class MakaoGame(Game):
         self.game_state["blocked"] = {}
         self.game_state["drawn"] = []
         self.game_state["effect"] = {}
+        self.game_state["winners"] = {}
+        self.game_state["makao_called"] = {}
 
-        for player_id, conn, _ in self.players:
+        for player_id, conn, _, _, _ in self.players:
             hand = []
             for i in range(self.settings["starting_cards"]):
                 hand.append(self.game_state["deck"].draw())
 
             self.game_state["hands"][player_id] = hand
             self.game_state["blocked"][player_id] = 0
+            self.game_state["makao_called"][player_id] = False
 
             msg = self.create_msg(
                 game="MAKAO",
@@ -395,7 +545,54 @@ class MakaoGame(Game):
 
             # ======== MAKAO =======
             if action == "MAKAO":
-                pass
+                hand_size = len(self.game_state["hands"][player_id])
+
+                if hand_size == 1:
+                    self.game_state["makao_called"][player_id] = True
+
+                    msg = self.create_msg(
+                        game="MAKAO",
+                        msg_type = "MAKAO",
+                        player_id = player_id
+                    )
+
+                    self.broadcast(msg)
+
+                    print(f"[MAKAO] Gracz {player_id} powiedział MAKAO")
+
+                else:
+                    print("[ERROR] Nie można powiedzieć MAKAO")
+
+                return
+
+            # ==== MAKAO REPORT ====
+
+            if action == "REPORT_MAKAO":
+                target = int(data.get("target"))
+
+                if target is None:
+                    return
+
+                hand_size = len(self.game_state["hands"].get(target, []))
+                said = self.game_state["makao_called"].get(target, False)
+
+                if hand_size == 1 and not said and target != self.game_state["current_turn"]:
+                    for _ in range(5):
+                        card = self.draw()
+                        if card:
+                            self.game_state["hands"][target].append(card)
+
+                    msg = self.create_msg(
+                        game="MAKAO",
+                        msg_type="REPORT",
+                        player_id=target,
+                        data={
+                        }
+                    )
+
+                    self.broadcast(msg)
+
+                return
 
             if player_id != self.game_state["current_turn"]:
                 print ("[ERROR] To nie jest tura tego gracza")
@@ -419,6 +616,7 @@ class MakaoGame(Game):
                     self.send_table_update()
                     if self.check_winner():
                         self.game_state["next_turn"] = None
+                        self.game_state["makao_called"][player_id] = False
                         return
                 else:
                     print("[ERROR] zła karta")
@@ -440,6 +638,7 @@ class MakaoGame(Game):
                     card = self.draw()
                     if card:
                         self.game_state["hands"][player_id].append(card)
+                    self.game_state["makao_called"][player_id] = False
                 self.send_table_update()
                 self.send_turn_to_current_player()
                 return

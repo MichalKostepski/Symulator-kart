@@ -8,9 +8,9 @@ class Game(ABC):
         self.send_json = send_json
         self.create_msg = create_msg
 
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
 
-        self.players = [] # [(player_id, conn, addr)]
+        self.players = [] # [(player_id, conn, addr, is_bot, bot)]
         self.next_player_id = 1
 
     # =========================
@@ -22,7 +22,7 @@ class Game(ABC):
             player_id = self.next_player_id
             self.next_player_id += 1
 
-            self.players.append((player_id, conn, addr))
+            self.players.append((player_id, conn, addr, False, None))
 
             print(f"[{self.name}] Gracz {player_id} dołączył")
 
@@ -47,7 +47,9 @@ class Game(ABC):
     def broadcast(self, msg):
         disconnected = []
 
-        for player_id, conn, _ in self.players:
+        for player_id, conn, _, is_bot, bot in self.players:
+            if is_bot:
+                continue
             try:
                 self.send_to_player(conn, msg)
             except:
