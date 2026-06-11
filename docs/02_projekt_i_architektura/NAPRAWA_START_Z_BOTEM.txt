@@ -1,0 +1,20 @@
+NAPRAWA: start gry z 1 graczem i botem Monte Carlo
+
+Poprawiono problem, przez który start Pokera w układzie 1 prawdziwy gracz + 1 bot mógł wywalać albo zawieszać host_gui.
+
+Zmiany:
+1. poker.py
+   - send_to_player() ignoruje teraz conn == None, bo bot nie ma socketu klienta.
+   - run_bot() ma zabezpieczenie try/except, żeby błąd bota Monte Carlo nie zamykał hosta.
+
+2. host_gui.py
+   - start gry odpala się w osobnym wątku, żeby GUI hosta nie zawieszało się, kiedy bot liczy symulacje Monte Carlo.
+
+Uruchamianie:
+1. Otwórz folder uruchomienie/.
+2. Kliknij 03_URUCHOM_HOSTA_I_KLIENTA.vbs.
+3. W kliencie wybierz POKER.
+4. W host_gui dodaj 1 bota do Pokera.
+5. Kliknij START POKER.
+
+Można też uruchomić osobno 01_URUCHOM_HOSTA.vbs, a potem 02_URUCHOM_KLIENTA.vbs.

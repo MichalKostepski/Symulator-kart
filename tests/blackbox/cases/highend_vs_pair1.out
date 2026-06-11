@@ -1,0 +1,17 @@
+{
+    "phase": "preflop",
+    "current_turn": 0,
+    "pot": 10,
+    "community_cards": [],
+    "hands": {
+        "1": [], 
+        "2": []
+    },
+    "chips": {
+        "1": 1500,
+        "2": 490
+    },
+    "folded_players": [],
+    "players_acted": [],
+    "game_started": true
+}

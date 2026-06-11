@@ -1,0 +1,1 @@
+Plik CO_USUNIETO.txt z poprzedniej paczki nie został przeniesiony do głównej struktury, ponieważ zawierał nieaktualne informacje o usuniętych plikach.

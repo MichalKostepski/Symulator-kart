@@ -1,0 +1,17 @@
+{
+    "phase": "showdown",
+    "current_turn": 0,
+    "pot": 1000,
+    "community_cards": ["2H", "JH", "QD", "7C", "5S"],
+    "hands": {
+        "1": ["2D", "9C"], 
+        "2": ["9D", "8S"]
+    },
+    "chips": {
+        "1": 500,
+        "2": 500
+    },
+    "folded_players": [],
+    "players_acted": ["1", "2"],
+    "game_started": true
+}

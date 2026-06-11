@@ -1,0 +1,25 @@
+{
+    "phase": "preflop",
+    "current_turn": 0,
+    "pot": 10,
+    "community_cards": [],
+    "hands": {
+        "1": [],
+        "2": [],
+        "3": [],
+        "4": [],
+        "5": []
+    },
+    "chips": {
+        "1": 1100,
+        "2": 1090,
+        "3": 1100,
+        "4": 1100,
+        "5": 1100
+    },
+    "folded_players": [],
+    "players_acted": [],
+    "game_started": true,
+    "blind_player": 1,
+    "blind_amount": 10
+}

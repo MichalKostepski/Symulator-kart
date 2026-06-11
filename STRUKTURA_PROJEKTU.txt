@@ -1,0 +1,29 @@
+STRUKTURA PROJEKTU
+
+.
+app
+app/assets
+app/assets/cards
+data
+docs
+docs/01_wymagania
+docs/02_projekt_i_architektura
+docs/03_testy
+docs/04_diagramy_i_harmonogram
+reports
+reports/coverage
+reports/coverage/htmlcov_makao
+reports/coverage/htmlcov_poker
+scripts
+tests
+tests/blackbox
+tests/blackbox/cases
+tests/unit
+tests/whitebox
+
+
+Folder uruchomienie/
+- 01_URUCHOM_HOSTA.vbs - start panelu hosta i serwera
+- 02_URUCHOM_KLIENTA.vbs - start klienta gracza
+- 03_URUCHOM_HOSTA_I_KLIENTA.vbs - start hosta i klienta na jednym komputerze
+- README_URUCHOMIENIE.txt - krótka instrukcja uruchamiania

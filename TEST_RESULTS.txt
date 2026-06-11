@@ -1,0 +1,7 @@
+Wyniki testów po zmianach wersji 1920x1080:
+
+Testy jednostkowe: 23/23 OK
+Testy białoskrzynkowe: 9/9 OK
+Testy czarnoskrzynkowe Pokera: 78/78 OK
+
+Dodatkowo sprawdzono start widoków Tkinter klienta i hosta w trybie testowym.
