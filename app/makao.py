@@ -15,7 +15,7 @@ class MakaoGame(Game):
 
         self.settings = {
             "number_of_decks": 1,
-            "starting_cards": 3
+            "starting_cards": 5
         }
 
         self.game_state = {
