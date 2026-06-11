@@ -76,7 +76,6 @@ projekt_10_06/
 │   ├── unit/
 │   ├── whitebox/
 │   └── blackbox/
-├── requirements.txt
 └── README.md
 ```
 
@@ -251,49 +250,11 @@ Domyślny runner sprawdza logikę Pokera i Makao, testy białoskrzynkowe oraz te
 
 Uwaga: w folderze `tests/unit/` są też testy GUI (`client_test.py`, `host_test.py`). Nie są one uruchamiane w domyślnym skrypcie `run_all_tests.py`, ponieważ wymagają środowiska z działającym ekranem graficznym Tkinter.
 
----
 
-## 9. Co zostało uporządkowane i poprawione
-
-W tej wersji paczki:
-
-- uporządkowano pliki w foldery tematyczne,
-- przeniesiono kod aplikacji do folderu `app/`,
-- przeniesiono dokumentację do folderu `docs/`,
-- przeniesiono testy do folderu `tests/`,
-- przeniesiono raporty coverage do `reports/coverage/`,
-- dodano skrypty uruchamiania testów,
-- dodano poprawiony plik `README.md`,
-- dodano folder `uruchomienie/` z plikami VBS do startu aplikacji na Windows,
-- dostosowano okna hosta i klienta do formatu 1920 × 1080 oraz dodano przewijanie widoku na mniejszych ekranach,
-- poprawiono problem w testach Makao związany z nowym formatem gracza po dodaniu botów,
-- dodano odporniejszą obsługę broadcastu dla różnych formatów gracza,
-- poprawiono drobny błąd w ruchu bota Makao, aby po decyzji o dobraniu karty bot nie próbował od razu wykonywać kolejnego ruchu,
-- ustawiono zapis statystyk i historii w folderze `data/`.
 
 ---
 
-## 10. Materiały do prezentacji
-
-Do prezentacji warto pokazać kolejno:
-
-1. **Tytuł projektu** — Poker / Makao Hub.
-2. **Problem biznesowy** — użytkownik chce zagrać w karty bez fizycznych kart, żetonów i dodatkowego sprzętu.
-3. **Cel projektu** — stworzenie huba z dwiema grami karcianymi.
-4. **Interesariusze** — gracz, host, deweloperzy, prowadzący projekt.
-5. **Wymagania funkcjonalne** — wybór gry, LAN, boty, chat, statystyki, zasady.
-6. **Wymagania niefunkcjonalne** — prostota, stabilność, lokalny zapis danych, intuicyjne GUI.
-7. **Architektura** — host-klient, logika gry, GUI, boty, dane lokalne.
-8. **Implementacja Pokera** — fazy gry, żetony, showdown, ocena układów.
-9. **Implementacja Makao** — karty funkcyjne, dobieranie, blokowanie, Makao.
-10. **Boty** — automatyczni gracze, w Pokerze symulacje Monte Carlo.
-11. **Testowanie** — testy jednostkowe, białoskrzynkowe i czarnoskrzynkowe `.in/.out`, wyniki testów.
-12. **Demo** — uruchomienie hosta i klienta przez pliki VBS, dodanie bota i rozpoczęcie gry.
-13. **Podsumowanie** — co się udało i co można rozwinąć dalej.
-
----
-
-## 11. Możliwe dalsze rozwijanie projektu
+## 9. Możliwe dalsze rozwijanie projektu
 
 - tryb gry przez Internet, nie tylko LAN,
 - logowanie użytkowników,
@@ -305,7 +266,7 @@ Do prezentacji warto pokazać kolejno:
 
 ---
 
-## 12. Autorzy
+## 10. Autorzy
 
 Projekt: **Hub z grami Poker i Makao**  
 Autorzy wskazani w dokumentacji projektu: **Rafał Koper, Piotr Horodecki, Michał Kostępski**.
