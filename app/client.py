@@ -76,6 +76,7 @@ class CardGameClientApp:
         self.setup_window()
         self.root.configure(bg=self.bg_color)
         self.root.protocol("WM_DELETE_WINDOW", self.close_app)
+        self.card_style = "medium"
 
 
         self.client = None
@@ -161,7 +162,9 @@ class CardGameClientApp:
         self.connect_to_server(show_errors=False)
 
 
-
+    def get_cards_dir(self):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(base_dir, "assets", "cards", self.card_style)
 
 
     def setup_window(self):
@@ -401,7 +404,7 @@ class CardGameClientApp:
             return self.card_image_cache[key]
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        cards_dir = os.path.join(base_dir, "assets", "cards", "medium")
+        cards_dir = self.get_cards_dir()
         path = os.path.join(cards_dir, filename)
 
         if not os.path.exists(path):
@@ -697,6 +700,19 @@ class CardGameClientApp:
             else:
                 self.show_menu()
 
+    def change_card_style(self):
+        self.card_style = "second" if self.card_style == "medium" else "medium"
+
+        if hasattr(self, "card_image_cache"):
+            self.card_image_cache.clear()
+
+        if self.active_game == "POKER":
+            self.show_poker()
+        elif self.active_game == "MAKAO":
+            self.show_makao()
+        else:
+            self.show_menu()
+
     def show_rules_poker(self):
         rules = (
             "Każdy gracz otrzymuje dwie karty własne\n"
@@ -773,7 +789,12 @@ class CardGameClientApp:
         self.make_button(rules_frame, "ZASADY POKERA", self.show_rules_poker, bg="#3D5A80", fg="white", width=20).grid(row=0, column=0, padx=10)
         self.make_button(rules_frame, "ZASADY MAKAO", self.show_rules_makao, bg="#3D5A80", fg="white", width=20).grid(row=0, column=1, padx=10)
 
-        self.make_button(outer, "Zmień kolor tła", self.change_color, bg="#F8F7F2", width=20).pack(pady=10)
+        appearance_frame = tk.Frame(outer, bg=self.bg_color)
+        appearance_frame.pack(pady=10)
+
+        self.make_button(appearance_frame, "Zmień kolor tła", self.change_color, bg="#F8F7F2", width=20).grid(row=0, column=0, padx=10)
+        self.make_button(appearance_frame, "Zmień styl kart", self.change_card_style, bg="#F8F7F2", width=20).grid(row=0, column=1, padx=10)
+
         self.make_button(outer, "HISTORIA GIER", self.show_history_window, bg="#F4A261", width=20).pack(pady=10)
 
         tk.Label(
