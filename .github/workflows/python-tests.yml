@@ -25,12 +25,33 @@ jobs:
       PYTHONIOENCODING: utf-8
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Compile Python source files
         run: python -m compileall -q app scripts tests
       - name: Run unit, white-box and black-box tests
         run: python scripts/run_all_tests.py
+
+  gui-smoke:
+    name: Ubuntu / Tkinter GUI tests (Xvfb)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONIOENCODING: utf-8
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install Xvfb and Tk libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb python3-tk
+      - name: Run existing Tkinter host/client tests on a virtual desktop
+        run: xvfb-run -a python -m unittest tests/unit/client_test.py tests/unit/host_test.py -v
