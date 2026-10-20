@@ -25,6 +25,8 @@ def capture(name, cls, patch_method, output_dir):
         with patch.object(cls, patch_method, return_value=False):
             app = cls(root)
         root.update_idletasks()
+        # Xvfb needs one full event-loop pass to paint button and label text.
+        root.update()
         assert root.winfo_exists(), f"{name}: window was not created"
         assert root.winfo_width() > 500 and root.winfo_height() > 400, (
             f"{name}: unexpected window dimensions"
@@ -39,7 +41,8 @@ def capture(name, cls, patch_method, output_dir):
             # Screenshot contains only fictional/empty local UI state.
             from PIL import ImageGrab
 
-            time.sleep(0.25)
+            time.sleep(0.35)
+            root.update()
             root.update_idletasks()
             x, y = root.winfo_rootx(), root.winfo_rooty()
             w, h = root.winfo_width(), root.winfo_height()
