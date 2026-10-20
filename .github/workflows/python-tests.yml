@@ -38,7 +38,7 @@ jobs:
   gui-smoke:
     name: Ubuntu / Tkinter GUI tests (Xvfb)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 8
     env:
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONIOENCODING: utf-8
@@ -53,5 +53,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb python3-tk
-      - name: Run existing Tkinter host/client tests on a virtual desktop
-        run: xvfb-run -a python -m unittest tests/unit/client_test.py tests/unit/host_test.py -v
+      - name: Install screenshot helper (CI only; not an app dependency)
+        run: python -m pip install --disable-pip-version-check pillow
+      - name: Smoke-test actual Tkinter windows and capture GUI
+        run: timeout 120s xvfb-run -a -s "-screen 0 1920x1080x24" python scripts/gui_smoke.py --screenshots gui-screenshots
+      - name: Upload real GUI screenshots for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tkinter-gui-screenshots
+          path: gui-screenshots/*.png
+          if-no-files-found: warn
+          retention-days: 30
