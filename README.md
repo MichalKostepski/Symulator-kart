@@ -56,6 +56,14 @@ Launch the host on one computer and clients on other computers **on the same tru
 
 **Linux / macOS:** Try `python3 app/host_gui.py` and `python3 app/client.py` in separate terminals. Tkinter must be installed (on Debian/Ubuntu, typically `python3-tk`). Automated logic tests run on Linux, but complete GUI/gameplay verification is still a manual step. Windows `.vbs` launchers do not work on Linux/macOS.
 
+## Interface preview
+
+Real Tkinter windows captured in an automated Ubuntu/Xvfb GUI smoke test. These are **idle/demo views** with network connections mocked: they demonstrate how the application looks, not a completed multiplayer match.
+
+![Host dashboard captured from the application](docs/screenshots/host-window.png)
+
+![Player client captured from the application](docs/screenshots/client-window.png)
+
 ## Architecture
 
 ```text

@@ -43,3 +43,7 @@ Results may depend on display environment and should be reported separately. Use
 ## Out of scope
 
 This automated suite does **not** prove correct visual layout, Windows `.vbs` behavior, external LAN connectivity, arbitrary hostile network traffic, accessibility or internet readiness. The game contains no real-money wagers.
+
+## Automated screenshot preview
+
+The Ubuntu/Xvfb GUI smoke job instantiates both real Tkinter interfaces with network startup mocked, captures the **idle windows** using Pillow (CI-only dependency), uploads a downloadable screenshot artifact and, on trusted branch pushes, publishes `docs/screenshots/host-window.png` and `docs/screenshots/client-window.png`. These screenshots are not a substitute for manual multiplayer gameplay tests.

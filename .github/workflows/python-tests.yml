@@ -38,6 +38,8 @@ jobs:
   gui-smoke:
     name: Ubuntu / Tkinter GUI tests (Xvfb)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 8
     env:
       PYTHONDONTWRITEBYTECODE: "1"
@@ -65,3 +67,16 @@ jobs:
           path: gui-screenshots/*.png
           if-no-files-found: warn
           retention-days: 30
+      - name: Publish reproducible GUI preview images to README
+        if: github.event_name == 'push' && github.ref == 'refs/heads/MAIN_NEW' && success()
+        shell: bash
+        run: |
+          mkdir -p docs/screenshots
+          cp gui-screenshots/host-window.png gui-screenshots/client-window.png docs/screenshots/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/host-window.png docs/screenshots/client-window.png
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: publish authentic Tkinter GUI smoke screenshots [skip ci]"
+            git push origin HEAD:MAIN_NEW
+          fi
