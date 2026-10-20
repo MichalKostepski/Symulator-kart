@@ -14,15 +14,44 @@ APP = Path(__file__).resolve().parents[1] / "app"
 if str(APP) not in sys.path:
     sys.path.insert(0, str(APP))
 
+import host_gui
+import client
 from host_gui import HostGuiApp
 from client import CardGameClientApp
+
+
+def prepare_fictional_poker_preview(app):
+    """Render a fictional example directly through the genuine player UI."""
+    app.my_player_id = 1
+    app.poker_hand_cards = ["AH", "KD"]
+    app.poker_community_cards = ["7H", "2C", "QS"]
+    app.poker_phase = "flop"
+    app.poker_pot = 180
+    app.poker_current_bet = 20
+    app.poker_your_bet = 20
+    app.poker_turn_player = 1
+    app.poker_blind_player = 2
+    app.poker_players = [
+        {"player_id": 1, "is_bot": False, "chips": 480, "bet": 20, "folded": False, "all_in": False},
+        {"player_id": 2, "is_bot": True, "chips": 460, "bet": 20, "folded": False, "all_in": False},
+        {"player_id": 3, "is_bot": True, "chips": 470, "bet": 20, "folded": False, "all_in": False},
+    ]
+    app.status_var.set("WIDOK DEMO - fikcyjny stan, bez polaczenia z serwerem")
+    app.show_poker()
+    app.poker_chips_var.set("Zetony: 480")
+    app.set_poker_action_buttons(False)
+    app.root.update_idletasks()
+    app.root.update()
+    app.draw_poker_table()
 
 
 def capture(name, cls, patch_method, output_dir):
     root = tk.Tk()
     app = None
     try:
-        with patch.object(cls, patch_method, return_value=False):
+        with patch.object(cls, patch_method, return_value=False), (
+            patch.object(host_gui, "DEFAULT_SERVER", "127.0.0.1")
+        ), patch.object(client, "DEFAULT_SERVER", "127.0.0.1"):
             app = cls(root)
         root.update_idletasks()
         # Xvfb needs one full event-loop pass to paint button and label text.
@@ -37,8 +66,11 @@ def capture(name, cls, patch_method, output_dir):
             assert app.active_game is None and not app.connected
             assert app.menu_stats_var is not None
 
+        if name == "poker-demo":
+            prepare_fictional_poker_preview(app)
+
         if output_dir is not None:
-            # Screenshot contains only fictional/empty local UI state.
+            # GUI and any player state are genuine Tk widgets with fictional examples.
             from PIL import ImageGrab
 
             time.sleep(0.35)
@@ -67,6 +99,7 @@ def main():
     args = parser.parse_args()
     capture("host", HostGuiApp, "start_server", args.screenshots)
     capture("client", CardGameClientApp, "connect_to_server", args.screenshots)
+    capture("poker-demo", CardGameClientApp, "connect_to_server", args.screenshots)
 
 
 if __name__ == "__main__":

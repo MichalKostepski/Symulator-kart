@@ -58,7 +58,13 @@ Launch the host on one computer and clients on other computers **on the same tru
 
 ## Interface preview
 
-Real Tkinter windows captured in an automated Ubuntu/Xvfb GUI smoke test. These are **idle/demo views** with network connections mocked: they demonstrate how the application looks, not a completed multiplayer match.
+Real Tkinter windows captured in an automated Ubuntu/Xvfb GUI smoke test. Network connections are mocked. The Poker table below displays **fictional, scripted example state** through the real UI; it is not a recording of a completed multiplayer match.
+
+### Poker table (fictional UI state)
+
+![Poker interface rendering example cards, players and controls](docs/screenshots/poker-demo-window.png)
+
+### Host and client windows
 
 ![Host dashboard captured from the application](docs/screenshots/host-window.png)
 
