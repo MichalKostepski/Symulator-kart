@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+# Avoid two screenshot publishers racing when documentation changes land rapidly.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
@@ -73,6 +78,11 @@ jobs:
         run: |
           mkdir -p docs/screenshots
           cp gui-screenshots/host-window.png gui-screenshots/client-window.png docs/screenshots/
+          # Do not push a screenshot commit based on an outdated branch head.
+          if [ "$(git ls-remote origin refs/heads/MAIN_NEW | cut -f1)" != "$(git rev-parse HEAD)" ]; then
+            echo "Branch advanced; skipping stale screenshot publication"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/screenshots/host-window.png docs/screenshots/client-window.png
