@@ -1,0 +1,31 @@
+# Python / test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+reports/coverage/
+*.egg-info/
+
+# Local environments and editor settings
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local player statistics (created by StatsManager on first use)
+data/*.txt
+
+# Build outputs
+build/
+dist/
+*.spec

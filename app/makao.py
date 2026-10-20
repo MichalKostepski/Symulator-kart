@@ -83,6 +83,9 @@ class MakaoGame(Game):
             return
 
         hand = self.game_state["hands"][player_id]
+        # A bot with no cards has already finished; never call max() on an empty hand.
+        if not hand:
+            return
 
         print(self.game_state["table"][-1])
         weights = []

@@ -100,7 +100,12 @@ def main():
     failed = 0
     missing = 0
 
-    for input_file in sorted(CASES.glob("*.in")):
+    input_files = sorted(CASES.glob("*.in"))
+    if not input_files:
+        print(f"No black-box cases found in {CASES}")
+        return 1
+
+    for input_file in input_files:
         output_file = input_file.with_suffix(".out")
         if not output_file.exists():
             print(f"{input_file.name} {RED}brak pliku .out{RESET}")

@@ -1,272 +1,146 @@
-# Poker / Makao Hub
+# Poker & Makao Hub
 
-Projekt zaliczeniowy z Inżynierii Oprogramowania: **hub z dwiema grami karcianymi — Poker Texas Hold'em oraz Makao**.
-Aplikacja została napisana w języku **Python** i działa w modelu **host-klient w sieci LAN**. Projekt zawiera GUI, logikę obu gier, boty, chat, lokalne statystyki, historię rozgrywek, dokumentację oraz testy.
+**A LAN multiplayer card-game desktop application built in Python.** Two games, a host/client architecture, Tkinter interfaces, playable bots and automated game-logic tests — created as a three-person university software-engineering project.
 
----
+[![Python tests](https://github.com/MichalKostepski/Symulator-kart/actions/workflows/python-tests.yml/badge.svg?branch=MAIN_NEW)](https://github.com/MichalKostepski/Symulator-kart/actions/workflows/python-tests.yml)
 
-## 1. Cel projektu
+**Python 3.11+ · Tkinter · TCP sockets · JSON · threading · unittest · standard library only**
 
-Celem projektu było stworzenie prostej aplikacji rekreacyjnej, która pozwala zagrać w gry karciane bez fizycznych kart i żetonów.
-System umożliwia:
+> **Project status:** University prototype / portfolio project, not a public internet gaming service. It is designed for trusted local networks and uses virtual poker chips only. This repository contains collaborative work by **Rafał Koper, Piotr Horodecki and Michał Kostępski**; see [Credits](#credits).
 
-- wybór gry: **Poker** albo **Makao**,
-- grę wieloosobową w sieci lokalnej LAN,
-- grę z botami,
-- korzystanie z chatu,
-- zmianę wyglądu interfejsu,
-- podgląd zasad gry,
-- zapis statystyk i historii rozgrywek.
+## Why we built it
 
-Projekt **nie obsługuje hazardu** — w Pokerze używane są wyłącznie wirtualne żetony.
+We wanted to bring the basic card-table experience to computers on the same network, without requiring users to set up a dedicated game server or install third-party Python packages. The interesting challenge was keeping several components in sync: the host's authoritative game state, each player's interface, turn rules, bot decisions and messages sent over TCP.
 
----
+## Features at a glance
 
-## 2. Technologie
+| | Texas Hold'em Poker | Makao |
+| --- | --- | --- |
+| Gameplay | Community cards, blinds, betting rounds, fold / call / raise, showdown | Turn-based play, drawing, card effects, suit/rank requests, Makao calls |
+| Bots | Monte Carlo hand-equity estimation with pot-odds heuristics | Rule-based card scoring and action selection |
+| Multiplayer | Host + clients over LAN | Host + clients over LAN |
+| Interface | Poker table, hand and controls | Card hand, active card and turn controls |
+| Testing | Unit, white-box and **78 data-driven black-box scenarios** | Unit and white-box tests |
 
-Projekt korzysta z:
+**Shared features:** host dashboard, chat, customizable client appearance, rules screens and local win/loss history. The interface was primarily designed around a 1920 × 1080 desktop, with scrollbars on smaller displays.
 
-- **Python 3**,
-- **Tkinter**,
-- **socket**,
-- **threading**,
-- **json**,
-- **unittest**,
-- plików tekstowych `stats.txt` i `history.txt`.
+## Get started — Windows
 
-Projekt nie wymaga instalowania dodatkowych bibliotek z `pip`.
-Na Linuxie może być potrzebny pakiet systemowy `python3-tk`, ponieważ GUI korzysta z Tkintera.
+**Requirements:** Python 3.11 or newer with Tkinter and an available TCP port **5050**. No `pip install` or API keys are needed.
 
----
+### Play on one computer
 
-## 3. Struktura folderów
+1. Download or clone the repository.
+2. Open the `uruchomienie` folder.
+3. Double-click **`03_URUCHOM_HOSTA_I_KLIENTA.vbs`**. The script opens the host and client applications.
+4. In the client, choose **POKER** or **MAKAO** and connect to `127.0.0.1` if the server is on the same PC.
+5. Use the host dashboard to add bots or wait for other players, then start the game.
+
+If you prefer visible console output (recommended for the first run), open **two PowerShell windows** in the repository root:
+
+```powershell
+# Window 1 — start the host
+py -3 app/host_gui.py
+```
+
+```powershell
+# Window 2 — start a player client
+py -3 app/client.py
+```
+
+Run the host first. Windows Firewall may ask for permission to receive local-network connections; allow it only on a **private, trusted network**.
+
+### Play across the LAN
+
+Launch the host on one computer and clients on other computers **on the same trusted local network**. In the client, enter the host computer's LAN IPv4 address (shown in the host window), and use port **5050**. A router or firewall can prevent connections; do **not** expose this server through public port forwarding.
+
+**Linux / macOS:** Try `python3 app/host_gui.py` and `python3 app/client.py` in separate terminals. Tkinter must be installed (on Debian/Ubuntu, typically `python3-tk`). Automated logic tests run on Linux, but complete GUI/gameplay verification is still a manual step. Windows `.vbs` launchers do not work on Linux/macOS.
+
+## Architecture
 
 ```text
-projekt_10_06/
-├── app/
-│   ├── host_gui.py
-│   ├── client.py
-│   ├── poker.py
-│   ├── makao.py
-│   ├── poker_bot.py
-│   ├── makao_bot.py
-│   ├── game.py
-│   ├── card.py
-│   ├── deck.py
-│   ├── card_simple.py
-│   ├── deck_simple.py
-│   ├── stats_manager.py
-│   └── assets/
-├── data/
-│   ├── stats.txt
-│   └── history.txt
-├── docs/
-│   ├── 01_wymagania/
-│   ├── 02_projekt_i_architektura/
-│   ├── 03_testy/
-│   └── 04_diagramy_i_harmonogram/
-├── reports/coverage/
-├── scripts/
-├── uruchomienie/
-│   ├── 01_URUCHOM_HOSTA.vbs
-│   ├── 02_URUCHOM_KLIENTA.vbs
-│   ├── 03_URUCHOM_HOSTA_I_KLIENTA.vbs
-│   └── README_URUCHOMIENIE.txt
-├── tests/
-│   ├── unit/
-│   ├── whitebox/
-│   └── blackbox/
-└── README.md
+                     Trusted local network (TCP :5050)
+  +----------------------+             +----------------------+
+  | Host GUI             |             | Player client(s)     |
+  | app/host_gui.py      |<-- JSON --->| app/client.py        |
+  +----------+-----------+             +-----------+----------+
+             |                                      |
+     +-------+--------+                   +---------+---------+
+     |                |                   | Local statistics  |
+  +--v---------+  +---v--------+          | app/stats_manager |
+  | PokerGame  |  | MakaoGame  |          +-------------------+
+  | poker.py   |  | makao.py   |
+  +--+---------+  +---+--------+
+     |                |
+  +--v---------+  +---v--------+
+  | PokerBot   |  | Makao bot  |
+  | Monte Carlo|  | Heuristics |
+  +------------+  +------------+
 ```
 
----
+The server owns the game rules and state; clients send actions and render updates. Network messages are JSON with a fixed-size **64-byte ASCII length header**, followed by UTF-8 payload bytes. Game-state operations use locks to coordinate connection-handler threads.
 
-## 4. Jak uruchomić aplikację
+See [Architecture & protocol](docs/ARCHITECTURE.md) and the original [UML component diagram](docs/04_diagramy_i_harmonogram/Diagram_Komponentow.png). The `docs/` tree also preserves the university project's requirements, design, test documentation, diagrams and schedule.
 
-Na Windows aplikację najlepiej uruchamiać przez pliki VBS z folderu `uruchomienie/`.
+## Run the tests
 
-Najprostszy wariant na jednym komputerze:
+The project uses Python's built-in `unittest` framework and a data-driven black-box runner; no dependencies need installing.
 
-1. Otwórz folder `projekt_10_06/`.
-2. Wejdź do folderu `uruchomienie/`.
-3. Kliknij dwa razy `03_URUCHOM_HOSTA_I_KLIENTA.vbs`.
-
-Ten plik uruchamia osobno panel hosta oraz klienta gracza.
-
-Można też uruchomić aplikację ręcznie w dwóch krokach:
-
-1. `01_URUCHOM_HOSTA.vbs` — uruchamia panel hosta i serwer.
-2. `02_URUCHOM_KLIENTA.vbs` — uruchamia klienta gracza.
-
-Najpierw powinien działać host, dopiero potem klient. Po uruchomieniu klienta wybierz grę: **POKER** albo **MAKAO**. W panelu hosta możesz dodać boty lub poczekać na graczy z tej samej sieci LAN, a następnie rozpocząć grę.
-
-Pliki VBS uruchamiają projekt bez widocznego okna `cmd`. Najpierw próbują użyć `pyw -3`, potem `pythonw`, a awaryjnie ukrytego uruchomienia przez `py -3` albo `python`.
-
-Interfejs aplikacji został ustawiony pod format **1920 × 1080**. Jeżeli komputer ma mniejszą rozdzielczość, okno dopasuje się do ekranu, a widok można przewijać w pionie i poziomie, żeby przyciski typu **RAISE** były nadal dostępne.
-
----
-
-## 5. Jak grać przez LAN
-
-1. Host uruchamia `host_gui.py`.
-2. Klient uruchamia `client.py`.
-3. Komputery muszą być w tej samej sieci lokalnej.
-4. Klient wpisuje adres IP hosta i łączy się z serwerem.
-5. Host może uruchomić grę, gdy są gracze albo gdy doda boty.
-
-Domyślny port: **5050**.
-
----
-
-## 6. Najważniejsze funkcjonalności
-
-### Funkcje ogólne
-
-- wybór gry,
-- gra w sieci LAN,
-- panel hosta,
-- aplikacja klienta,
-- chat między graczami,
-- zmiana stylu interfejsu,
-- wyświetlanie zasad gry,
-- lokalne statystyki,
-- historia gier.
-
-### Poker
-
-- obsługa faz rozgrywki,
-- wirtualne żetony,
-- blindy,
-- fold/call/raise,
-- ocena układów pokerowych,
-- showdown,
-- rozdzielanie puli,
-- bot pokerowy wykorzystujący symulacje Monte Carlo.
-
-### Makao
-
-- rozdawanie i tasowanie kart,
-- obsługa kart funkcyjnych,
-- dobieranie kart,
-- blokowanie tur,
-- żądanie koloru i figury,
-- mechanizm „Makao”,
-- bot do Makao,
-- przetasowanie talii, gdy skończą się karty do dobierania.
-
----
-
-## 7. Architektura w skrócie
-
-Projekt ma podział na warstwy:
-
-1. **Interfejs użytkownika**  
-   `client.py`, `host_gui.py`
-
-2. **Logika gier**  
-   `poker.py`, `makao.py`
-
-3. **Model danych**  
-   `card.py`, `deck.py`, `card_simple.py`, `deck_simple.py`
-
-4. **Boty**  
-   `poker_bot.py`, `makao_bot.py`
-
-5. **Komunikacja sieciowa**  
-   `socket`, `threading`, wiadomości JSON
-
-6. **Dane lokalne**  
-   `stats_manager.py`, folder `data/`
-
----
-
-## 8. Testy
-
-Projekt zawiera trzy główne typy testów.
-
-### Testy jednostkowe
-
-Obejmują logikę Pokera i Makao.
-
-Uruchomienie:
-
-```bash
-python scripts/run_unit_tests.py
-```
-
-Aktualny wynik:
-
-```text
-Ran 23 tests
-OK
-```
-
-### Testy białoskrzynkowe
-
-Testy białoskrzynkowe sprawdzają konkretne wewnętrzne ścieżki kodu, m.in. metody pomocnicze, zmiany w `game_state`, efekty kart w Makao, przechodzenie tur w Pokerze oraz zapis statystyk.
-
-Plik z testami:
-
-```text
-tests/whitebox/test_whitebox_logic.py
-```
-
-Uruchomienie:
-
-```bash
-python scripts/run_whitebox_tests.py
-```
-
-Aktualny wynik:
-
-```text
-Ran 9 tests
-OK
-```
-
-### Testy czarnoskrzynkowe Pokera
-
-Testy oparte na plikach `.in` i `.out`, które sprawdzają poprawne wyłanianie zwycięzcy i rozdzielanie puli dla różnych układów kart.
-
-Uruchomienie:
-
-```bash
-python scripts/run_blackbox_poker.py
-```
-
-Aktualny wynik:
-
-```text
-Wynik: OK=78, błędne=0, brakujące=0
-```
-
-### Wszystkie testy naraz
-
-```bash
+```powershell
 python scripts/run_all_tests.py
 ```
 
-Domyślny runner sprawdza logikę Pokera i Makao, testy białoskrzynkowe oraz testy czarnoskrzynkowe Pokera.
+Or run each layer separately:
 
-Uwaga: w folderze `tests/unit/` są też testy GUI (`client_test.py`, `host_test.py`). Nie są one uruchamiane w domyślnym skrypcie `run_all_tests.py`, ponieważ wymagają środowiska z działającym ekranem graficznym Tkinter.
+```powershell
+python scripts/run_unit_tests.py
+python scripts/run_whitebox_tests.py
+python scripts/run_blackbox_poker.py
+```
 
+The existing suite includes **23 original unit tests**, **9 white-box tests** and **78 black-box poker fixtures**, with additional core-model/protocol regression tests in this portfolio version. Actual results are reported by the [GitHub Actions workflow](https://github.com/MichalKostepski/Symulator-kart/actions/workflows/python-tests.yml) for Python 3.11/3.12 on Ubuntu and Windows.
 
+GUI-focused tests in `tests/unit/client_test.py` and `tests/unit/host_test.py` are **not part of the default headless suite**; they require a working Tk desktop and may need environment-specific setup. For a reproducible human check, use [Manual QA checklist](docs/MANUAL_QA.md).
 
----
+See [Testing strategy](docs/TESTING.md) for coverage scope and limitations.
 
-## 9. Możliwe dalsze rozwijanie projektu
+## Repository guide
 
-- tryb gry przez Internet, nie tylko LAN,
-- logowanie użytkowników,
-- ranking graczy,
-- zapis rozgrywek w bazie danych,
-- lepszy poziom trudności botów,
-- instalator aplikacji,
-- dalsze rozbudowanie GUI.
+| Location | Responsibility |
+| --- | --- |
+| `app/host_gui.py` | Server lifecycle, host dashboard, client connections and dispatch |
+| `app/client.py` | Tkinter player UI, card drawing, networking and local stats |
+| `app/poker.py`, `app/makao.py` | Game rules and round transitions |
+| `app/poker_bot.py`, `app/makao.py` | Poker equity estimation and Makao bot decisions |
+| `app/card*.py`, `app/deck*.py` | Deck/card data structures |
+| `app/stats_manager.py` | Plain-text local statistics and match history |
+| `tests/` | Unit, white-box, black-box and optional GUI tests |
+| `scripts/` | Repeatable test commands |
+| `docs/` | Requirements, UML, project documentation and technical notes |
+| `uruchomienie/` | Windows double-click launchers |
 
----
+**Local player data:** `data/stats.txt` and `data/history.txt` are created and updated on your machine. They are deliberately **not tracked** in the portfolio repository; your playing history stays local.
 
-## 10. Autorzy
+## Engineering choices and trade-offs
 
-Projekt: **Hub z grami Poker i Makao**  
-Autorzy wskazani w dokumentacji projektu: **Rafał Koper, Piotr Horodecki, Michał Kostępski**.
+- **Standard library only:** simpler installation; Tkinter is provided with most Python distributions.
+- **Host-authoritative game state:** client actions are processed by the game logic rather than trusting a rendered card-table state.
+- **Monte Carlo bot:** samples unknown cards and estimates equity rather than relying exclusively on fixed hand rankings.
+- **Automated rules testing:** input/output poker fixtures exercise winners, ties and pot distribution separately from the UI.
+- **Boundaries:** no user authentication, encryption, anti-cheat hardening, matchmaking, internet hosting or commercial gambling features. This is an educational LAN prototype, not a hardened network service.
+
+Detailed technical limitations and disclosure guidance are in [Security & limitations](docs/SECURITY.md).
+
+## Credits
+
+Developed as a **group university project** by **Rafał Koper, Piotr Horodecki and Michał Kostępski**. The university documentation identifies all three contributors; this portfolio repository does not claim that any individual wrote the entire application.
+
+The repository includes course deliverables and card graphics. Their original authorship/licensing has not been independently verified, so **no open-source license is asserted for the complete repository**. Contact the contributors before copying or redistributing assets/code outside the scope of viewing this public portfolio.
+
+## More
+
+- [Architecture & network protocol](docs/ARCHITECTURE.md)
+- [Testing guide](docs/TESTING.md)
+- [Manual desktop QA checklist](docs/MANUAL_QA.md)
+- [Security & limitations](docs/SECURITY.md)
+- [Portfolio project summary](docs/PORTFOLIO.md)

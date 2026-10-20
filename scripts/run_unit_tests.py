@@ -10,6 +10,7 @@ cmd = [
     "unittest",
     "tests/unit/poker_unittest.py",
     "tests/unit/makao_unittest.py",
+    "tests/unit/test_core_models.py",
 ]
 print("Uruchamiam testy jednostkowe...")
 result = subprocess.run(cmd, cwd=ROOT)
